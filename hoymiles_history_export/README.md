@@ -1,95 +1,119 @@
 # Hoymiles History Export
 
-A one-shot Home Assistant add-on that backfills **missing historical solar
-production data** into one of your Home Assistant statistics, by pulling
-per-day power curves directly from the **Hoymiles S-Miles Cloud** and
-integrating them into hourly energy values.
+⚠️ **Proof of Concept – ungetestet in dieser Form.** Dieses Add-on ist das
+Ergebnis einer Recherche/eines Experiments während einer Home-Assistant-
+Fehlersuche, kein fertig getestetes Produkt. Die Kernlogik (Login bei der
+Hoymiles-Cloud, Tages-Historie abrufen, in Home Assistant importieren) wurde
+erfolgreich gegen einen echten Hoymiles-Account und eine echte Home-
+Assistant-Instanz getestet – allerdings manuell, Schritt für Schritt, mit
+fest eingetragenen Geräte-IDs. Die hier vorliegende, verallgemeinerte
+Add-on-Verpackung (automatische Geräte-Erkennung, freie Konfiguration für
+beliebige Anlagen) wurde **nicht** selbst als fertiges Add-on durchgetestet.
 
-## When you need this
+Veröffentlicht, damit andere es ausprobieren können – um zu bestätigen, dass
+es funktioniert, es für den eigenen Anwendungsfall zu erweitern, oder
+zurückzumelden, was nicht funktioniert (bitte über die
+[Issues](https://github.com/DrdotHouse2106/Hoymiles-History-Export-f-r-HomeAssistant/issues)
+dieses Repos).
 
-- Your local Hoymiles gateway/add-on was misconfigured (wrong IP, offline,
-  etc.) for a while, and Home Assistant has a gap in its solar production
-  history for that period — even though your actual Hoymiles inverter kept
-  reporting fine to the Hoymiles cloud/app the whole time.
-- You started using Home Assistant *after* your PV system was already
-  installed, and want to import the full history back to installation day.
+## Was es tut
 
-It does **not** touch your live data or your Hoymiles add-on/integration —
-it only fills in the target statistic's history for the date range you give
-it, and (if there is already data right after that range) applies a single,
-clean forward-shift so old and new data line up with no jump or double
-counting.
+Ein einmalig laufendes Home-Assistant-Add-on, das **fehlende historische
+Solar-Ertragsdaten** in eine Home-Assistant-Statistik nachträgt, indem es
+Tages-Leistungskurven direkt aus der **Hoymiles S-Miles Cloud** abruft und
+zu Stundenwerten integriert.
 
-## Setup
+## Wann das nützlich ist
 
-1. Add this repository to your Home Assistant Add-on Store
-   (Settings → Add-ons → Add-on Store → ⋮ → Repositories), then install
-   **Hoymiles History Export**.
-2. Configure:
-   - `hoymiles_user` / `hoymiles_password` — your Hoymiles / S-Miles Cloud
-     account (the same you use in the Hoymiles app).
-   - `hoymiles_plant_id` — your plant/station ID (visible in the Hoymiles
-     app, or in your existing Hoymiles Home Assistant entities, e.g.
+- Euer lokales Hoymiles-Gateway/Add-on war für eine Weile falsch
+  konfiguriert (falsche IP, offline o.ä.), und Home Assistant hat dadurch
+  eine Lücke in der Solar-Verlaufsgrafik – obwohl der eigentliche
+  Wechselrichter die ganze Zeit brav an die Hoymiles-Cloud/App gemeldet hat.
+- Ihr nutzt Home Assistant erst seit einem Zeitpunkt **nach** der
+  PV-Installation und wollt die komplette Historie bis zum Installationstag
+  nachtragen.
+
+Es rührt eure laufenden Daten oder euer bestehendes Hoymiles-Add-on/die
+Integration nicht an – es füllt nur die Historie der Ziel-Statistik für den
+von euch angegebenen Zeitraum, und hängt sich (falls direkt danach schon
+Daten vorhanden sind) über einen einzigen sauberen Verschiebungs-Schritt
+nahtlos daran an, ohne Sprung oder Doppelzählung.
+
+## Einrichtung
+
+1. Repository zum Add-on Store hinzufügen (*Einstellungen → Add-ons →
+   Add-on Store → ⋮ → Repositories*), dann **Hoymiles History Export**
+   installieren.
+2. Konfigurieren:
+   - `hoymiles_user` / `hoymiles_password` – euer Hoymiles-/S-Miles-Cloud-
+     Account (derselbe wie in der Hoymiles-App).
+   - `hoymiles_plant_id` – eure Anlagen-/Station-ID (in der Hoymiles-App
+     sichtbar, oder in euren bestehenden Hoymiles-Entitäten, z.B.
      `sensor.hoymiles_gateway_solarh_<plant_id>_...`).
-   - `statistic_id` — the Home Assistant energy statistic to backfill, e.g.
-     `sensor.hoymiles_gateway_solarh_3023680_today_eq` (this should be a
-     `total_increasing`/`total` energy sensor, typically the "today"
-     production counter your Hoymiles integration already exposes).
-   - `start_date` / `end_date` — the date range to fill (`YYYY-MM-DD`,
-     inclusive). Check your existing history/statistics graph first to find
-     exactly which days are missing.
-   - `time_zone` — your Home Assistant time zone (must match, so day
-     boundaries line up correctly).
-   - `days_per_batch` — how many days to process before each import call;
-     the default (30) is a reasonable, polite pace against the Hoymiles
-     servers.
-3. Start the add-on and watch its log. It logs each day's computed energy as
-   it goes, and finishes with a summary. The add-on naturally exits/stops
-   when done — that's expected for a one-shot job, not an error.
-4. Re-open the Energy dashboard / History graph for your `statistic_id` to
-   confirm the gap is filled.
+   - `statistic_id` – die Home-Assistant-Energiestatistik, die aufgefüllt
+     werden soll, z.B. `sensor.hoymiles_gateway_solarh_3023680_today_eq`
+     (sollte ein `total_increasing`/`total`-Energiesensor sein, typisch der
+     „heute produziert"-Zähler eurer Hoymiles-Integration).
+   - `start_date` / `end_date` – **der Zeitraum, den ihr nachtragen wollt**,
+     frei wählbar (`JJJJ-MM-TT`, beide Tage eingeschlossen). Schaut vorher in
+     eurer Verlaufsgrafik/Statistik nach, welche Tage genau fehlen.
+   - `time_zone` – eure Home-Assistant-Zeitzone (muss passen, damit
+     Tagesgrenzen korrekt liegen).
+   - `days_per_batch` – wie viele Tage vor jedem Import-Aufruf verarbeitet
+     werden; der Standardwert (30) ist ein vernünftiges, rücksichtsvolles
+     Tempo gegenüber den Hoymiles-Servern.
+3. Add-on starten und das Log beobachten. Es protokolliert für jeden Tag den
+   berechneten Ertrag und schließt mit einer Zusammenfassung ab. Das Add-on
+   beendet sich danach von selbst (Container stoppt) – das ist bei einem
+   Einmal-Werkzeug normal, kein Fehler.
+4. Energie-Dashboard/Verlaufsgrafik der `statistic_id` neu laden, um zu
+   prüfen, ob die Lücke gefüllt ist.
 
-## How it works
+## Wie es funktioniert
 
-- Logs into the Hoymiles cloud the same way the community "HoyMiles Solar
-  Gateway" add-on does (Argon2 login, with an automatic fallback to the
-  legacy MD5 login if that's unavailable on your account).
-- Auto-discovers every micro-inverter under your plant.
-- For each day in the range, calls Hoymiles' `count_by_day` endpoint per
-  inverter (an intraday power curve, `MI_POWER`, sampled every 15–60
-  minutes depending on time of day) and numerically integrates it into 24
-  hourly Wh totals, summed across all inverters found.
-- Writes those hourly values into Home Assistant's long-term statistics via
-  `recorder/import_statistics`, chained onto whatever cumulative total your
-  statistic already has right before `start_date` (or starting fresh at 0
-  if there's nothing before it).
-- If data already exists right after `end_date`, applies one
-  `recorder/adjust_sum_statistics` shift so the two periods connect exactly,
-  without disturbing anything else.
+- Login bei der Hoymiles-Cloud auf demselben Weg wie das Community-Add-on
+  „HoyMiles Solar Gateway" (Argon2-Login, mit automatischem Rückfall auf den
+  älteren MD5-Login, falls das für den jeweiligen Account nicht verfügbar
+  ist).
+- Erkennt automatisch alle Mikro-Wechselrichter unter der angegebenen
+  Anlage.
+- Ruft für jeden Tag im Zeitraum über Hoymiles' `count_by_day`-Endpunkt pro
+  Wechselrichter eine untertägige Leistungskurve ab (`MI_POWER`, je nach
+  Tageszeit alle 15–60 Minuten ein Messpunkt) und integriert sie numerisch
+  zu 24 Stunden-Wh-Werten, summiert über alle gefundenen Wechselrichter.
+- Schreibt diese Stundenwerte per `recorder/import_statistics` in Home
+  Assistants Langzeitstatistik, angehängt an den Summenwert, den die
+  Statistik unmittelbar vor `start_date` bereits hat (oder bei 0 beginnend,
+  falls davor noch gar nichts existiert).
+- Falls direkt nach `end_date` schon Daten existieren, wird einmalig ein
+  `recorder/adjust_sum_statistics`-Sprung angewendet, damit sich beide
+  Abschnitte exakt aneinanderfügen, ohne sonst etwas zu verändern.
 
-Talks to Home Assistant through the Supervisor's own API proxy
-(`homeassistant_api: true`) — no long-lived access token needs to be pasted
-in anywhere.
+Spricht mit Home Assistant über die Supervisor-eigene API-Weiterleitung
+(`homeassistant_api: true`) – es muss also nirgends ein Long-Lived-Token
+manuell eingetragen werden.
 
-## Accuracy
+## Genauigkeit
 
-Numeric integration of a sampled power curve is an approximation, not a
-perfect meter reading — expect roughly 1–2% deviation per day versus what a
-continuously-recording meter would have shown. Good enough to make a solar
-history chart whole again; not intended as a billing-grade reconstruction.
+Die numerische Integration einer abgetasteten Leistungskurve ist eine
+Näherung, kein perfekter Zählerstand – rechnet mit ca. 1–2% Abweichung pro
+Tag gegenüber einem durchgehend messenden Zähler. Für eine wieder
+vollständige Verlaufsgrafik ausreichend genau, aber nicht als
+abrechnungsgenaue Rekonstruktion gedacht.
 
-## Attribution
+## Danksagung
 
-The Hoymiles cloud login flow follows the same approach as
-[dmslabsbr/hoymiles](https://github.com/dmslabsbr/hoymiles) (community
-Home Assistant add-on). The `count_by_day` response's protobuf schema was
-reverse-engineered by the
-[ioBroker.hoymiles](https://github.com/Eistee82/ioBroker.hoymiles) project
-(MIT License, Copyright (c) 2026 Eistee82); this add-on implements its own
-from-scratch decoder against that published schema.
+Der Hoymiles-Cloud-Login-Ablauf folgt demselben Verfahren wie
+[dmslabsbr/hoymiles](https://github.com/dmslabsbr/hoymiles) (Community-
+Home-Assistant-Add-on). Das Protobuf-Schema der `count_by_day`-Antwort
+wurde vom Projekt
+[ioBroker.hoymiles](https://github.com/Eistee82/ioBroker.hoymiles)
+reverse-engineered (MIT-Lizenz, Copyright (c) 2026 Eistee82); dieses Add-on
+implementiert einen eigenen, neu geschriebenen Decoder gegen dieses
+veröffentlichte Schema.
 
-## Disclaimer
+## Haftungsausschluss
 
-Unofficial, community tool. Not affiliated with or endorsed by Hoymiles.
-Uses an undocumented cloud API that Hoymiles could change or restrict at
-any time.
+Inoffizielles Community-Tool, Proof of Concept. Nicht von Hoymiles
+autorisiert oder unterstützt. Nutzt eine undokumentierte Cloud-API, die
+Hoymiles jederzeit ändern oder einschränken könnte.

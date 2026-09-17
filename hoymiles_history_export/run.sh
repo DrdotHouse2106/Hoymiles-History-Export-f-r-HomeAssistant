@@ -1,5 +1,10 @@
 #!/usr/bin/with-contenv bashio
 
+bashio::log.warning "=== PROOF OF CONCEPT / UNGETESTET ==="
+bashio::log.warning "Dieses Add-on ist das Ergebnis einer Recherche, kein fertig getestetes Produkt."
+bashio::log.warning "Die Kernlogik wurde manuell gegen einen echten Account getestet, diese"
+bashio::log.warning "generalisierte Add-on-Verpackung selbst aber nicht. Details siehe README."
+bashio::log.warning "======================================"
 bashio::log.info "Starting Hoymiles History Export..."
 
 export HOYMILES_USER=$(bashio::config 'hoymiles_user')

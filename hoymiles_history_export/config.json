@@ -2,7 +2,7 @@
   "name": "Hoymiles History Export",
   "version": "1.0.0",
   "slug": "hoymiles_history_export",
-  "description": "One-shot tool: backfill missing/gap Hoymiles solar production history into a Home Assistant statistic, using data pulled from the Hoymiles S-Miles Cloud.",
+  "description": "Proof of Concept (ungetestet in dieser Form): Einmal-Werkzeug, das fehlende historische Hoymiles-Solar-Ertragsdaten in eine Home-Assistant-Statistik nachtraegt, mit Daten aus der Hoymiles S-Miles Cloud.",
   "url": "https://github.com/DrdotHouse2106/Hoymiles-History-Export-f-r-HomeAssistant",
   "arch": ["amd64", "aarch64", "armv7", "armhf", "i386"],
   "startup": "application",
