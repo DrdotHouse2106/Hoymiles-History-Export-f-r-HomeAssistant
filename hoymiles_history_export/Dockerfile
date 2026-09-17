@@ -1,17 +1,17 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=homeassistant/amd64-base-python:3.10-alpine3.18
 FROM $BUILD_FROM
 
-RUN apk add --no-cache python3 py3-pip
+ENV LANG=C.UTF-8
 
-RUN pip3 install --no-cache-dir --break-system-packages \
-    requests==2.32.3 \
-    websockets==13.1 \
-    argon2-cffi==23.1.0
+RUN python -m pip install --upgrade pip
+RUN pip3 install requests
+RUN pip3 install websockets
+RUN pip3 install argon2-cffi
 
-COPY run.sh /run.sh
-COPY backfill.py /backfill.py
-COPY hoymiles_client.py /hoymiles_client.py
-COPY protobuf_mini.py /protobuf_mini.py
+COPY run.sh /
+COPY backfill.py /
+COPY hoymiles_client.py /
+COPY protobuf_mini.py /
 
 RUN chmod a+x /run.sh
 
