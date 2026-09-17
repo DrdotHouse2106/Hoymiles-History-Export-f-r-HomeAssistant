@@ -1,0 +1,34 @@
+{
+  "name": "Hoymiles History Export",
+  "version": "1.0.0",
+  "slug": "hoymiles_history_export",
+  "description": "One-shot tool: backfill missing/gap Hoymiles solar production history into a Home Assistant statistic, using data pulled from the Hoymiles S-Miles Cloud.",
+  "url": "https://github.com/DrdotHouse2106/Hoymiles-History-Export-f-r-HomeAssistant",
+  "arch": ["amd64", "aarch64", "armv7", "armhf", "i386"],
+  "startup": "application",
+  "boot": "manual",
+  "init": false,
+  "homeassistant_api": true,
+  "options": {
+    "hoymiles_user": "",
+    "hoymiles_password": "",
+    "hoymiles_plant_id": "",
+    "statistic_id": "sensor.your_solar_today_energy",
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "unit_of_measurement": "kWh",
+    "time_zone": "Europe/Berlin",
+    "days_per_batch": 30
+  },
+  "schema": {
+    "hoymiles_user": "str",
+    "hoymiles_password": "password",
+    "hoymiles_plant_id": "str",
+    "statistic_id": "str",
+    "start_date": "str",
+    "end_date": "str",
+    "unit_of_measurement": "str",
+    "time_zone": "str",
+    "days_per_batch": "int(1,90)"
+  }
+}
