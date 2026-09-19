@@ -36,14 +36,24 @@ def env(name, default=None, required=False):
 HOYMILES_USER = env("HOYMILES_USER", required=True)
 HOYMILES_PASSWORD = env("HOYMILES_PASSWORD", required=True)
 HOYMILES_PLANT_ID = env("HOYMILES_PLANT_ID", required=True)
-STATISTIC_ID = env("STATISTIC_ID", required=True)
-START_DATE = env("START_DATE", required=True)
-END_DATE = env("END_DATE", required=True)
+STATISTIC_ID = env("STATISTIC_ID", default="")
+START_DATE = env("START_DATE", default="")
+END_DATE = env("END_DATE", default="")
 DAYS_PER_BATCH = int(env("DAYS_PER_BATCH", "30"))
 UNIT = env("UNIT_OF_MEASUREMENT", "kWh")
 TZ_NAME = env("TIME_ZONE", "Europe/Berlin")
 TZ = zoneinfo.ZoneInfo(TZ_NAME)
 SUPERVISOR_TOKEN = os.environ["SUPERVISOR_TOKEN"]
+
+ENABLE_LIVE_GATEWAY = env("ENABLE_LIVE_GATEWAY", "false").lower() == "true"
+POLL_INTERVAL_SECONDS = int(env("POLL_INTERVAL_SECONDS", "480"))
+# Supervisor auto-injects these when config.json declares services: ["mqtt:want"]
+# and the official Mosquitto add-on is installed - no manual entry needed.
+MQTT_HOST = env("MQTT_HOST", default="")
+MQTT_PORT = int(env("MQTT_PORT", "1883"))
+MQTT_USERNAME = env("MQTT_USERNAME", default="")
+MQTT_PASSWORD = env("MQTT_PASSWORD", default="")
+MQTT_SSL = env("MQTT_SSL", "false").lower() == "true"
 
 
 # ---------------------------------------------------------------- HA WS ----
@@ -161,7 +171,7 @@ def daterange(a, b):
 
 # ------------------------------------------------------------------ main ----
 
-def main():
+def run_history_backfill():
     start_day = datetime.date.fromisoformat(START_DATE)
     final_day = datetime.date.fromisoformat(END_DATE)
 
@@ -237,6 +247,33 @@ def main():
         log.info("No existing data after the filled range (this was the newest gap).")
 
     log.info("Done.")
+
+
+def main():
+    if START_DATE and END_DATE:
+        run_history_backfill()
+    else:
+        log.info("No start_date/end_date given - skipping history backfill.")
+
+    if ENABLE_LIVE_GATEWAY:
+        if not MQTT_HOST:
+            log.error("enable_live_gateway is on but no MQTT broker was found "
+                       "(install/start the Mosquitto broker add-on) - aborting.")
+            sys.exit(1)
+        import live_gateway
+        live_gateway.run({
+            "hoymiles_user": HOYMILES_USER,
+            "hoymiles_password": HOYMILES_PASSWORD,
+            "hoymiles_plant_id": HOYMILES_PLANT_ID,
+            "mqtt_host": MQTT_HOST,
+            "mqtt_port": MQTT_PORT,
+            "mqtt_user": MQTT_USERNAME,
+            "mqtt_password": MQTT_PASSWORD,
+            "mqtt_tls": MQTT_SSL,
+            "poll_interval_seconds": POLL_INTERVAL_SECONDS,
+        })
+    else:
+        log.info("enable_live_gateway is off - add-on finished, will stop now.")
 
 
 if __name__ == "__main__":

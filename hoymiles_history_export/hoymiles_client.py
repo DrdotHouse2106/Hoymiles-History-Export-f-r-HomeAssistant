@@ -1,13 +1,25 @@
 """Minimal Hoymiles S-Miles Cloud client: login + device discovery + per-day
-history curves. The login flow mirrors the one used by the community
-"HoyMiles Solar Gateway" Home Assistant add-on (github.com/dmslabsbr/hoymiles).
+history curves + live realtime data. The login flow mirrors the one used by
+the community "HoyMiles Solar Gateway" Home Assistant add-on
+(github.com/dmslabsbr/hoymiles).
+
+Unlike that add-on, every HTTP call here has an explicit timeout - the
+original's `sess.send(prepped)` has none at all, which lets a single slow
+Hoymiles-cloud response hang the whole polling loop forever with no error
+logged (a real bug we diagnosed by reading its source after our own
+Hoymiles integration silently stopped publishing twice).
 """
 import hashlib
 import json
 import logging
 
 import requests
-from argon2.low_level import Type, hash_secret_raw
+
+try:
+    from argon2.low_level import Type, hash_secret_raw
+    _HAS_ARGON2 = True
+except ImportError:
+    _HAS_ARGON2 = False
 
 from protobuf_mini import parse_line_chart
 
@@ -19,6 +31,7 @@ HEADER_DATA = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/plain, */*",
 }
+REQUEST_TIMEOUT = 20  # seconds - the one thing the original add-on never set
 
 
 class HoymilesClient:
@@ -32,7 +45,7 @@ class HoymilesClient:
 
     def _pre_insp(self):
         r = requests.post(BASE_URL + "/iam/pub/3/auth/pre-insp", headers=HEADER_LOGIN,
-                           data=json.dumps({"u": self.user}), timeout=20)
+                           data=json.dumps({"u": self.user}), timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         data = r.json()
         if data.get("status") != "0":
@@ -40,6 +53,8 @@ class HoymilesClient:
         return data["data"]
 
     def _login_argon2(self):
+        if not _HAS_ARGON2:
+            raise RuntimeError("argon2-cffi not installed")
         insp = self._pre_insp()
         n, a = insp.get("n"), insp.get("a")
         if not a:
@@ -49,7 +64,7 @@ class HoymilesClient:
                                memory_cost=32768, parallelism=1, hash_len=32, type=Type.ID)
         payload = json.dumps({"u": self.user, "ch": raw.hex(), "n": n})
         r = requests.post(BASE_URL + "/iam/pub/3/auth/login", headers=HEADER_LOGIN,
-                           data=payload, timeout=20)
+                           data=payload, timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         data = r.json()
         if data.get("status") != "0":
@@ -60,7 +75,7 @@ class HoymilesClient:
         pass_hex = hashlib.md5(self.password.encode()).hexdigest()
         payload = json.dumps({"user_name": self.user, "password": pass_hex})
         r = requests.post(BASE_URL + "/iam/pub/0/auth/login", headers=HEADER_LOGIN,
-                           data=payload, timeout=20)
+                           data=payload, timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         data = r.json()
         if data.get("status") != "0":
@@ -83,31 +98,44 @@ class HoymilesClient:
         return h
 
     def _post(self, path, payload):
-        r = requests.post(BASE_URL + path, headers=self._auth_header(),
-                           data=json.dumps(payload), timeout=30)
-        return r
+        return requests.post(BASE_URL + path, headers=self._auth_header(),
+                              data=json.dumps(payload), timeout=REQUEST_TIMEOUT)
 
     # -- device discovery ----------------------------------------------
 
-    def discover_micro_inverter_ids(self):
-        """Return the list of micro-inverter device ids under this plant."""
+    def get_device_tree(self):
+        """Return the raw device tree (dtu + micro-inverters with status)."""
         r = self._post("/pvm/api/0/station/select_device_of_tree", {"id": str(self.plant_id)})
         r.raise_for_status()
         data = r.json()
         if data.get("status") != "0":
             raise RuntimeError(f"device tree failed: {data}")
+        return data["data"]
+
+    def discover_micro_inverter_ids(self):
         ids = []
 
         def walk(nodes):
             for node in nodes:
-                # type 3 == microinverter in the observed device tree; collect
-                # any node that has its own children==[] and looks like an inverter
                 if node.get("type") == 3:
                     ids.append(node["id"])
                 walk(node.get("children", []))
 
-        walk(data["data"])
+        walk(self.get_device_tree())
         return ids
+
+    # -- realtime data ----------------------------------------------------
+
+    def get_realtime_data(self):
+        """Fetch current plant-level realtime data (power, today/month/year/
+        total yield, etc.) - same endpoint the original add-on polls."""
+        r = self._post("/pvm-data/api/0/station/data/count_station_real_data",
+                        {"sid": self.plant_id})
+        r.raise_for_status()
+        data = r.json()
+        if data.get("status") != "0":
+            raise RuntimeError(f"realtime data failed: {data}")
+        return data["data"]
 
     # -- history --------------------------------------------------------
 

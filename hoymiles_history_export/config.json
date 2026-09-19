@@ -1,34 +1,39 @@
 {
-  "name": "Hoymiles History Export",
-  "version": "1.1.0",
+  "name": "Hoymiles History Export & Live Gateway",
+  "version": "2.0.0",
   "slug": "hoymiles_history_export",
-  "description": "Proof of Concept (ungetestet in dieser Form): Einmal-Werkzeug, das fehlende historische Hoymiles-Solar-Ertragsdaten in eine Home-Assistant-Statistik nachtraegt, mit Daten aus der Hoymiles S-Miles Cloud.",
+  "description": "Proof of Concept: Hoymiles-Solar-Historie in Home Assistant nachtragen, optional dauerhaft als robuster Ersatz fuer das originale Live-Gateway-Add-on weiterlaufen (mit echten Netzwerk-Timeouts).",
   "url": "https://github.com/DrdotHouse2106/Hoymiles-History-Export-f-r-HomeAssistant",
   "arch": ["amd64", "aarch64", "armv7", "armhf", "i386"],
-  "startup": "application",
+  "startup": "services",
   "boot": "manual",
   "init": false,
   "homeassistant_api": true,
+  "services": ["mqtt:want"],
   "options": {
     "hoymiles_user": "",
     "hoymiles_password": "",
     "hoymiles_plant_id": "",
     "statistic_id": "sensor.your_solar_today_energy",
-    "start_date": "2024-01-01",
-    "end_date": "2024-12-31",
+    "start_date": "",
+    "end_date": "",
     "unit_of_measurement": "kWh",
     "time_zone": "Europe/Berlin",
-    "days_per_batch": 30
+    "days_per_batch": 30,
+    "enable_live_gateway": false,
+    "poll_interval_seconds": 480
   },
   "schema": {
     "hoymiles_user": "str",
     "hoymiles_password": "password",
     "hoymiles_plant_id": "str",
-    "statistic_id": "str",
-    "start_date": "match(^\\d{4}-\\d{2}-\\d{2}$)",
-    "end_date": "match(^\\d{4}-\\d{2}-\\d{2}$)",
+    "statistic_id": "str?",
+    "start_date": "match(^(\\d{4}-\\d{2}-\\d{2})?$)",
+    "end_date": "match(^(\\d{4}-\\d{2}-\\d{2})?$)",
     "unit_of_measurement": "str",
     "time_zone": "str",
-    "days_per_batch": "int(1,90)"
+    "days_per_batch": "int(1,90)",
+    "enable_live_gateway": "bool",
+    "poll_interval_seconds": "int(60,3600)"
   }
 }
