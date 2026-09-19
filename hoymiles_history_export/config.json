@@ -1,6 +1,6 @@
 {
   "name": "Hoymiles History Export",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "slug": "hoymiles_history_export",
   "description": "Proof of Concept (ungetestet in dieser Form): Einmal-Werkzeug, das fehlende historische Hoymiles-Solar-Ertragsdaten in eine Home-Assistant-Statistik nachtraegt, mit Daten aus der Hoymiles S-Miles Cloud.",
   "url": "https://github.com/DrdotHouse2106/Hoymiles-History-Export-f-r-HomeAssistant",
@@ -25,8 +25,8 @@
     "hoymiles_password": "password",
     "hoymiles_plant_id": "str",
     "statistic_id": "str",
-    "start_date": "str",
-    "end_date": "str",
+    "start_date": "match(^\\d{4}-\\d{2}-\\d{2}$)",
+    "end_date": "match(^\\d{4}-\\d{2}-\\d{2}$)",
     "unit_of_measurement": "str",
     "time_zone": "str",
     "days_per_batch": "int(1,90)"

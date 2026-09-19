@@ -1,0 +1,45 @@
+configuration:
+  hoymiles_user:
+    name: Hoymiles username
+    description: >-
+      Email address of your Hoymiles / S-Miles Cloud account (the same one
+      used in the Hoymiles app).
+  hoymiles_password:
+    name: Hoymiles password
+    description: Password of your Hoymiles / S-Miles Cloud account.
+  hoymiles_plant_id:
+    name: Plant ID
+    description: >-
+      Your Hoymiles plant/station ID, e.g. visible in the Hoymiles app or in
+      your existing entities (sensor.hoymiles_gateway_solarh_<plant_id>_...).
+  statistic_id:
+    name: Target sensor (statistic ID)
+    description: >-
+      The Home Assistant energy statistic to backfill, e.g.
+      sensor.hoymiles_gateway_solarh_3023680_today_eq. Should be a
+      total_increasing/total energy sensor (typically your Hoymiles
+      integration's "today produced" counter).
+  start_date:
+    name: Start date (YYYY-MM-DD)
+    description: >-
+      First day of the gap to fill, as YYYY-MM-DD (e.g. 2025-09-07). No date
+      picker is possible here - the Home Assistant add-on config system does
+      not support one, so please type it as plain text.
+  end_date:
+    name: End date (YYYY-MM-DD)
+    description: >-
+      Last day of the gap (inclusive), as YYYY-MM-DD (e.g. 2026-09-16). For a
+      single day, use the same date as the start date.
+  unit_of_measurement:
+    name: Unit
+    description: Your target sensor's unit, almost always kWh - leave unchanged.
+  time_zone:
+    name: Time zone
+    description: >-
+      Your Home Assistant time zone (must match, so day boundaries line up
+      correctly), e.g. Europe/Berlin.
+  days_per_batch:
+    name: Days per batch
+    description: >-
+      How many days to process before each import call. The default (30) is
+      a reasonable, polite pace against the Hoymiles servers.

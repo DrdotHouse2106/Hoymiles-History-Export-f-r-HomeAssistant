@@ -1,0 +1,50 @@
+configuration:
+  hoymiles_user:
+    name: Hoymiles-Benutzername
+    description: >-
+      E-Mail-Adresse deines Hoymiles-/S-Miles-Cloud-Accounts (dieselbe wie in
+      der Hoymiles-App).
+  hoymiles_password:
+    name: Hoymiles-Passwort
+    description: Passwort deines Hoymiles-/S-Miles-Cloud-Accounts.
+  hoymiles_plant_id:
+    name: Anlagen-ID (Plant ID)
+    description: >-
+      Deine Hoymiles-Anlagen-/Station-ID, z.B. sichtbar in der Hoymiles-App
+      oder in euren bestehenden Entitäten
+      (sensor.hoymiles_gateway_solarh_<plant_id>_...).
+  statistic_id:
+    name: Ziel-Sensor (Statistik-ID)
+    description: >-
+      Die Home-Assistant-Energiestatistik, die aufgefüllt werden soll, z.B.
+      sensor.hoymiles_gateway_solarh_3023680_today_eq. Sollte ein
+      total_increasing/total-Energiesensor sein (typisch der
+      "heute produziert"-Zähler eurer Hoymiles-Integration).
+  start_date:
+    name: Startdatum (JJJJ-MM-TT)
+    description: >-
+      Erster Tag der Lücke, die aufgefüllt werden soll, im Format
+      JJJJ-MM-TT (z.B. 2025-09-07). Kein Kalender-Auswahlfeld möglich –
+      das unterstützt das Home-Assistant-Add-on-System technisch nicht,
+      daher bitte als Text eingeben.
+  end_date:
+    name: Enddatum (JJJJ-MM-TT)
+    description: >-
+      Letzter Tag der Lücke (eingeschlossen), im Format JJJJ-MM-TT
+      (z.B. 2026-09-16). Für nur einen einzelnen Tag: gleiches Datum wie
+      Startdatum eintragen.
+  unit_of_measurement:
+    name: Einheit
+    description: >-
+      Einheit eures Ziel-Sensors, in aller Regel kWh unverändert lassen.
+  time_zone:
+    name: Zeitzone
+    description: >-
+      Eure Home-Assistant-Zeitzone (muss passen, damit Tagesgrenzen korrekt
+      liegen), z.B. Europe/Berlin.
+  days_per_batch:
+    name: Tage pro Import-Durchlauf
+    description: >-
+      Wie viele Tage vor jedem Import-Aufruf verarbeitet werden. Der
+      Standardwert (30) ist ein vernünftiges, rücksichtsvolles Tempo
+      gegenüber den Hoymiles-Servern.
