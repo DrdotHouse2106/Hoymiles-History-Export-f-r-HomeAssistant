@@ -1,14 +1,18 @@
 # Hoymiles History Export
 
-⚠️ **Proof of Concept – ungetestet in dieser Form.** Dieses Add-on ist das
-Ergebnis einer Recherche/eines Experiments während einer Home-Assistant-
-Fehlersuche, kein fertig getestetes Produkt. Die Kernlogik (Login bei der
-Hoymiles-Cloud, Tages-Historie abrufen, in Home Assistant importieren) wurde
-erfolgreich gegen einen echten Hoymiles-Account und eine echte Home-
-Assistant-Instanz getestet – allerdings manuell, Schritt für Schritt, mit
-fest eingetragenen Geräte-IDs. Die hier vorliegende, verallgemeinerte
-Add-on-Verpackung (automatische Geräte-Erkennung, freie Konfiguration für
-beliebige Anlagen) wurde **nicht** selbst als fertiges Add-on durchgetestet.
+⚠️ **Proof of Concept.** Dieses Add-on ist das Ergebnis einer Recherche/eines
+Experiments während einer Home-Assistant-Fehlersuche, kein industriell
+abgesichertes Produkt. Zwei Teststufen bisher:
+1. Die Kernlogik (Login, Tages-Historie abrufen, Import) wurde manuell,
+   Schritt für Schritt mit fest eingetragenen Geräte-IDs getestet.
+2. Die verallgemeinerte Add-on-Verpackung (automatische Geräte-Erkennung,
+   freie Konfiguration) wurde inzwischen **einmal erfolgreich als fertiges
+   Add-on getestet** – einzelner Tag, echter Account, automatische Anker-
+   Erkennung, keine Duplikate in der resultierenden Statistik.
+
+Damit ist die Kernfunktion nachweislich lauffähig, aber weiterhin nur an
+einem einzigen Anlagentyp/einer Konfiguration erprobt – nicht an
+verschiedenen Anlagengrößen, Zeitzonen oder Mehrfach-Wechselrichter-Setups.
 
 Veröffentlicht, damit andere es ausprobieren können – um zu bestätigen, dass
 es funktioniert, es für den eigenen Anwendungsfall zu erweitern, oder
