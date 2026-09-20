@@ -1,6 +1,6 @@
 {
   "name": "Hoymiles History Export & Live Gateway",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "slug": "hoymiles_history_export",
   "description": "Proof of Concept: Hoymiles-Solar-Historie in Home Assistant nachtragen, optional dauerhaft als robuster Ersatz fuer das originale Live-Gateway-Add-on weiterlaufen (mit echten Netzwerk-Timeouts).",
   "url": "https://github.com/DrdotHouse2106/Hoymiles-History-Export-f-r-HomeAssistant",

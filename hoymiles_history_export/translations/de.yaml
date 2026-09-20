@@ -21,18 +21,21 @@ configuration:
       total_increasing/total-Energiesensor sein (typisch der
       "heute produziert"-Zähler eurer Hoymiles-Integration).
   start_date:
-    name: Startdatum (JJJJ-MM-TT)
+    name: Startdatum (JJJJ-MM-TT) - optional
     description: >-
       Erster Tag der Lücke, die aufgefüllt werden soll, im Format
-      JJJJ-MM-TT (z.B. 2025-09-07). Kein Kalender-Auswahlfeld möglich –
-      das unterstützt das Home-Assistant-Add-on-System technisch nicht,
-      daher bitte als Text eingeben.
+      JJJJ-MM-TT (z.B. 2025-09-07). Leer lassen, um den History-Backfill
+      komplett zu überspringen (z.B. wenn nur der Live-Modus genutzt werden
+      soll). Kein Kalender-Auswahlfeld möglich – das unterstützt das
+      Home-Assistant-Add-on-System technisch nicht, daher bitte als Text
+      eingeben.
   end_date:
-    name: Enddatum (JJJJ-MM-TT)
+    name: Enddatum (JJJJ-MM-TT) - optional
     description: >-
       Letzter Tag der Lücke (eingeschlossen), im Format JJJJ-MM-TT
       (z.B. 2026-09-16). Für nur einen einzelnen Tag: gleiches Datum wie
-      Startdatum eintragen.
+      Startdatum eintragen. Leer lassen, um den History-Backfill zu
+      überspringen.
   unit_of_measurement:
     name: Einheit
     description: >-
@@ -48,3 +51,18 @@ configuration:
       Wie viele Tage vor jedem Import-Aufruf verarbeitet werden. Der
       Standardwert (30) ist ein vernünftiges, rücksichtsvolles Tempo
       gegenüber den Hoymiles-Servern.
+  enable_live_gateway:
+    name: Live-Gateway aktivieren
+    description: >-
+      Nach dem (optionalen) History-Backfill dauerhaft weiterlaufen und
+      Live-Daten von Hoymiles abrufen + per MQTT veröffentlichen – als
+      Ersatz für das Original-"HoyMiles Solar Gateway"-Add-on, das dabei
+      Bugs hat (kein Netzwerk-Timeout, teils 16+ Stunden Totalausfall bei
+      MQTT-Problemen). Nutzt dieselben MQTT-Themen, bestehende Entitäten
+      bleiben erhalten. Braucht das Mosquitto-Broker-Add-on.
+  poll_interval_seconds:
+    name: Abfrage-Intervall (Sekunden)
+    description: >-
+      Nur relevant, wenn Live-Gateway aktiviert ist: wie oft (in Sekunden)
+      Hoymiles nach neuen Live-Daten gefragt wird. Standard 480 (8 Minuten),
+      entspricht dem Original-Add-on.

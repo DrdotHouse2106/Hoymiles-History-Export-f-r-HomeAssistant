@@ -123,6 +123,61 @@ class MqttPublisher:
         self.client.publish(topic, json.dumps(payload_dict))
 
 
+# (field_key, friendly_name, unit, device_class, state_class, icon) for the
+# plant-level discovery payloads. These match the field names/units the
+# original add-on's entities were already using (unique_id pattern
+# "solarH_<plant_id>_<field_key>"), rediscovered from those entities'
+# preserved attributes after they went unavailable - not guessed.
+PLANT_FIELDS = [
+    ("real_power", "Produktion aktuell W", "W", "power", "measurement", "mdi:solar-power"),
+    ("real_power_kw", "Produktion aktuell kW", "kW", "power", "measurement", "mdi:solar-power"),
+    ("array_size", "Gesamtleistung Solaranlage W", "W", "power", None, "mdi:solar-panel"),
+    ("array_size_kW", "Gesamtleistung Solaranlage kW", "kW", "power", None, "mdi:solar-panel"),
+    ("today_eq", "Produktion heute kWh", "kWh", "energy", "total_increasing", None),
+    ("today_eq_Wh", "Produktion Heute Wh", "Wh", "energy", "total_increasing", None),
+    ("month_eq", "Diesen Monat produziert", "kWh", "energy", "total_increasing", None),
+    ("year_eq", "Produktion Jahr kWh", "kWh", "energy", "total_increasing", None),
+    ("total_eq", "Produktion gesamt kWh", "kWh", "energy", "total_increasing", "mdi:infinity"),
+    ("co2_emission_reduction", "Eingespartes CO2", "t", None, "total_increasing", "mdi:molecule-co2"),
+    ("plant_tree", "Kompensierte Bäume", "Trees", None, "total_increasing", "mdi:tree"),
+    ("power_ratio", "Leistungsverhältnis", "%", "power_factor", None, "mdi:gauge-full"),
+    ("last_data_time", "Datum der letzten Aktualisierung", None, "timestamp", None, None),
+]
+
+
+def publish_discovery_configs(mqtt_client, plant_id):
+    """(Re-)publish the MQTT discovery config for each plant-level entity,
+    reusing the exact unique_id each one already has so Home Assistant binds
+    to the *same* existing entity instead of creating duplicates. Needed
+    because these configs are normally retained on the broker, but were
+    lost at some point (e.g. when the old add-on was uninstalled) - without
+    them Home Assistant no longer knows how to map incoming state_topic
+    payloads to entities, even though the raw data keeps arriving fine."""
+    node_id = f"solarH_{plant_id}"
+    state_topic = f"{MQTT_TOPIC_PREFIX}/json_{plant_id}"
+    device = {"identifiers": [node_id], "name": node_id, "manufacturer": "Hoymiles"}
+
+    for field, name, unit, device_class, state_class, icon in PLANT_FIELDS:
+        config = {
+            "name": name,
+            "unique_id": f"{node_id}_{field}",
+            "state_topic": state_topic,
+            "value_template": f"{{{{ value_json.{field} }}}}",
+            "device": device,
+        }
+        if unit:
+            config["unit_of_measurement"] = unit
+        if device_class:
+            config["device_class"] = device_class
+        if state_class:
+            config["state_class"] = state_class
+        if icon:
+            config["icon"] = icon
+        topic = f"homeassistant/sensor/{node_id}/{field}/config"
+        mqtt_client.client.publish(topic, json.dumps(config), retain=True)
+    log.info("Published %d MQTT discovery configs for plant %s", len(PLANT_FIELDS), plant_id)
+
+
 def run(config):
     client = HoymilesClient(config["hoymiles_user"], config["hoymiles_password"],
                              config["hoymiles_plant_id"])
@@ -132,6 +187,7 @@ def run(config):
 
     poll_interval = config["poll_interval_seconds"]
     backoff = 5
+    discovery_published = False
 
     log.info("Starting live gateway loop (poll every %ss)", poll_interval)
 
@@ -141,6 +197,9 @@ def run(config):
                 client.login()
             if not mqtt_client.connected:
                 mqtt_client.connect()
+            if not discovery_published:
+                publish_discovery_configs(mqtt_client, client.plant_id)
+                discovery_published = True
 
             raw = client.get_realtime_data()
             solar_data = adjust_solar_data(raw)

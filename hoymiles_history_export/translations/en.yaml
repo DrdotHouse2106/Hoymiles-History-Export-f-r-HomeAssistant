@@ -20,16 +20,19 @@ configuration:
       total_increasing/total energy sensor (typically your Hoymiles
       integration's "today produced" counter).
   start_date:
-    name: Start date (YYYY-MM-DD)
+    name: Start date (YYYY-MM-DD) - optional
     description: >-
-      First day of the gap to fill, as YYYY-MM-DD (e.g. 2025-09-07). No date
-      picker is possible here - the Home Assistant add-on config system does
-      not support one, so please type it as plain text.
+      First day of the gap to fill, as YYYY-MM-DD (e.g. 2025-09-07). Leave
+      empty to skip the history backfill entirely (e.g. if you only want the
+      live gateway mode). No date picker is possible here - the Home
+      Assistant add-on config system does not support one, so please type it
+      as plain text.
   end_date:
-    name: End date (YYYY-MM-DD)
+    name: End date (YYYY-MM-DD) - optional
     description: >-
       Last day of the gap (inclusive), as YYYY-MM-DD (e.g. 2026-09-16). For a
-      single day, use the same date as the start date.
+      single day, use the same date as the start date. Leave empty to skip
+      the history backfill.
   unit_of_measurement:
     name: Unit
     description: Your target sensor's unit, almost always kWh - leave unchanged.
