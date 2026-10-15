@@ -250,7 +250,9 @@ def run_history_backfill():
 
 
 def main():
-    if START_DATE and END_DATE:
+    if os.environ.get("SKIP_BACKFILL") == "1":
+        log.info("Gateway restart - skipping history backfill (it already ran at add-on start).")
+    elif START_DATE and END_DATE:
         run_history_backfill()
     else:
         log.info("No start_date/end_date given - skipping history backfill.")

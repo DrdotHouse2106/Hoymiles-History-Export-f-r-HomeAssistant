@@ -34,6 +34,19 @@ if bashio::config.true 'enable_live_gateway'; then
     fi
 fi
 
-python3 /backfill.py
+rc=0
+python3 /backfill.py || rc=$?
+
+# Keep the live gateway alive: if the Python process ever exits (crash,
+# or its own watchdog killed it because it stopped making progress),
+# start it again instead of leaving the add-on dead until someone notices.
+if bashio::config.true 'enable_live_gateway'; then
+    while true; do
+        bashio::log.warning "Live gateway process exited (code ${rc}) - restarting in 30s..."
+        sleep 30
+        rc=0
+        SKIP_BACKFILL=1 python3 /backfill.py || rc=$?
+    done
+fi
 
 bashio::log.info "Hoymiles History Export & Live Gateway: process ended."

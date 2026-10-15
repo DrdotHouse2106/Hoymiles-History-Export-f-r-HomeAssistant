@@ -20,11 +20,21 @@ stopped publishing twice, with no error anywhere):
 Every network call here has an explicit timeout, and every loop iteration
 is wrapped so one failure just logs and retries next cycle instead of
 hanging or crashing the whole process.
+
+On top of that, a watchdog thread exits the process (with a stack dump of
+every thread, so the exact hang location ends up in the log) if the main
+loop stops making progress or nothing has been delivered to MQTT for too
+long. run.sh then starts the gateway again - a timeout we forgot somewhere
+costs one restart instead of days of missing data.
 """
+import faulthandler
 import json
 import logging
+import os
+import sys
+import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
 import paho.mqtt.client as mqtt
 
@@ -34,7 +44,16 @@ log = logging.getLogger("hoymiles_live_gateway")
 
 MQTT_TOPIC_PREFIX = "home/solar"
 MQTT_CONNECT_TIMEOUT = 15  # seconds to wait for the broker handshake
+MQTT_PUBLISH_TIMEOUT = 15  # seconds to wait until paho actually sent a message
 MAX_BACKOFF = 300  # cap reconnect/retry backoff at 5 minutes, never longer
+# Worst case for one loop iteration besides the sleep: login (3 requests) +
+# realtime + device tree, each up to REQUEST_TIMEOUT for connect *and* read,
+# plus MQTT publish waits. 10 minutes is far above that.
+CYCLE_GRACE = 600
+# Restart the process if nothing reached MQTT for this long, even though the
+# loop itself is still alive (e.g. paho's network thread died silently).
+MIN_SILENCE_LIMIT = 3600
+WATCHDOG_CHECK_INTERVAL = 30
 
 
 def adjust_solar_data(raw):
@@ -84,43 +103,117 @@ def adjust_solar_data(raw):
 class MqttPublisher:
     """Thin paho-mqtt wrapper with sane, *bounded* reconnect backoff -
     the original add-on's equivalent can sleep for ~16.6 hours on a single
-    bad auth response; this one never waits longer than MAX_BACKOFF."""
+    bad auth response; this one never waits longer than MAX_BACKOFF.
+
+    Threading model: paho's loop_start() thread owns the socket and does all
+    (re)connecting itself. The main thread only ever calls publish() and
+    reads the thread-safe Events below - it never calls connect() again,
+    because doing that while the network thread is also reconnecting races
+    on the same socket."""
 
     def __init__(self, host, port, user, password, use_tls):
-        self.client = mqtt.Client(client_id="", clean_session=True, protocol=mqtt.MQTTv311)
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="",
+                                  clean_session=True, protocol=mqtt.MQTTv311)
         if user:
             self.client.username_pw_set(username=user, password=password)
         if use_tls:
             self.client.tls_set()
+        # Without a logger, an exception inside a paho callback kills the
+        # network thread without a single line of output.
+        self.client.enable_logger(logging.getLogger("paho"))
+        self.client.reconnect_delay_set(min_delay=1, max_delay=MAX_BACKOFF)
         self.host = host
-        self.port = port
-        self.connected = False
+        self.port = int(port)
+        self._connected = threading.Event()
+        # Set on every (re)connect: discovery configs are re-sent each time,
+        # so a broker that lost its retained messages heals by itself.
+        self.needs_discovery = threading.Event()
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
 
-    def _on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
-            self.connected = True
-            log.info("MQTT connected")
+    @property
+    def connected(self):
+        return self._connected.is_set()
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties):
+        if reason_code.is_failure:
+            self._connected.clear()
+            log.error("MQTT connect failed: %s", reason_code)
         else:
-            self.connected = False
-            log.error("MQTT connect failed, rc=%s", rc)
+            self._connected.set()
+            self.needs_discovery.set()
+            log.info("MQTT connected")
 
-    def _on_disconnect(self, client, userdata, rc):
-        self.connected = False
-        log.warning("MQTT disconnected, rc=%s", rc)
+    def _on_disconnect(self, client, userdata, flags, reason_code, properties):
+        self._connected.clear()
+        log.warning("MQTT disconnected: %s (paho reconnects automatically)", reason_code)
 
-    def connect(self):
-        self.client.connect(self.host, self.port, keepalive=60)
+    def start(self):
+        """Start paho's network thread exactly once. connect_async() makes
+        even the *first* connection attempt happen (and be retried) inside
+        that thread, so a broker that is down at startup is not fatal."""
+        self.client.connect_async(self.host, self.port, keepalive=60)
         self.client.loop_start()
-        deadline = time.monotonic() + MQTT_CONNECT_TIMEOUT
-        while not self.connected and time.monotonic() < deadline:
-            time.sleep(0.2)
-        if not self.connected:
-            raise RuntimeError(f"MQTT did not connect within {MQTT_CONNECT_TIMEOUT}s")
+        if not self._connected.wait(MQTT_CONNECT_TIMEOUT):
+            log.warning("MQTT not connected after %ss, paho keeps retrying in the background",
+                        MQTT_CONNECT_TIMEOUT)
 
-    def publish(self, topic, payload_dict):
-        self.client.publish(topic, json.dumps(payload_dict))
+    def publish(self, topic, payload_dict, retain=False):
+        """Publish and wait (bounded) until paho really wrote it to the socket.
+        Raises instead of silently queueing into a dead connection."""
+        if not self.connected:
+            raise RuntimeError(f"MQTT not connected, cannot publish to {topic}")
+        info = self.client.publish(topic, json.dumps(payload_dict), retain=retain)
+        info.wait_for_publish(timeout=MQTT_PUBLISH_TIMEOUT)
+        if not info.is_published():
+            raise RuntimeError(f"MQTT publish to {topic} not sent within {MQTT_PUBLISH_TIMEOUT}s")
+
+
+class Watchdog:
+    """Kills the process if the gateway stops making progress, so the
+    surrounding restart loop in run.sh can start a fresh one.
+
+    Two independent conditions:
+    - the main loop has not completed an iteration for `stall_limit` seconds
+      (a call blocks forever somewhere - exactly the kind of silent hang
+      the original add-on suffered from),
+    - nothing has been delivered to MQTT for `silence_limit` seconds even
+      though the loop still spins (e.g. paho's network thread is gone).
+
+    Before exiting it dumps the stack of every thread to the log, so the
+    next occurrence shows *where* it hung instead of just going quiet."""
+
+    def __init__(self, stall_limit, silence_limit):
+        self.stall_limit = stall_limit
+        self.silence_limit = silence_limit
+        now = time.monotonic()
+        self._last_beat = now
+        self._last_success = now
+
+    def beat(self):
+        self._last_beat = time.monotonic()
+
+    def success(self):
+        self._last_success = self._last_beat = time.monotonic()
+
+    def start(self):
+        threading.Thread(target=self._run, name="watchdog", daemon=True).start()
+
+    def _run(self):
+        while True:
+            time.sleep(WATCHDOG_CHECK_INTERVAL)
+            now = time.monotonic()
+            if now - self._last_beat > self.stall_limit:
+                self._die(f"main loop made no progress for {int(now - self._last_beat)}s")
+            if now - self._last_success > self.silence_limit:
+                self._die(f"nothing delivered to MQTT for {int(now - self._last_success)}s")
+
+    @staticmethod
+    def _die(reason):
+        log.critical("WATCHDOG: %s - dumping all thread stacks and exiting for a restart", reason)
+        faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+        sys.stderr.flush()
+        os._exit(3)  # os._exit: works even if other threads hold locks
 
 
 # (field_key, friendly_name, unit, device_class, state_class, icon) for the
@@ -174,7 +267,7 @@ def publish_discovery_configs(mqtt_client, plant_id):
         if icon:
             config["icon"] = icon
         topic = f"homeassistant/sensor/{node_id}/{field}/config"
-        mqtt_client.client.publish(topic, json.dumps(config), retain=True)
+        mqtt_client.publish(topic, config, retain=True)
     log.info("Published %d MQTT discovery configs for plant %s", len(PLANT_FIELDS), plant_id)
 
 
@@ -187,38 +280,56 @@ def run(config):
 
     poll_interval = config["poll_interval_seconds"]
     backoff = 5
-    discovery_published = False
+
+    # Dumps a traceback even on a hard crash inside a C extension
+    # (ssl, argon2), which otherwise just ends the log without a word.
+    faulthandler.enable()
+    watchdog = Watchdog(stall_limit=max(poll_interval, MAX_BACKOFF) + CYCLE_GRACE,
+                        silence_limit=max(MIN_SILENCE_LIMIT, 4 * poll_interval))
+    watchdog.start()
 
     log.info("Starting live gateway loop (poll every %ss)", poll_interval)
+    mqtt_client.start()
 
-    while True:
-        try:
-            if client.token is None:
-                client.login()
-            if not mqtt_client.connected:
-                mqtt_client.connect()
-            if not discovery_published:
-                publish_discovery_configs(mqtt_client, client.plant_id)
-                discovery_published = True
+    try:
+        while True:
+            try:
+                if client.token is None:
+                    client.login()
+                if mqtt_client.needs_discovery.is_set():
+                    mqtt_client.needs_discovery.clear()
+                    try:
+                        publish_discovery_configs(mqtt_client, client.plant_id)
+                    except Exception:
+                        mqtt_client.needs_discovery.set()  # retry next cycle
+                        raise
 
-            raw = client.get_realtime_data()
-            solar_data = adjust_solar_data(raw)
-            mqtt_client.publish(f"{MQTT_TOPIC_PREFIX}/json_{client.plant_id}", solar_data)
-            log.info("Published realtime data (real_power=%sW, today_eq=%skWh)",
-                      solar_data.get("real_power"), solar_data.get("today_eq"))
+                raw = client.get_realtime_data()
+                solar_data = adjust_solar_data(raw)
+                mqtt_client.publish(f"{MQTT_TOPIC_PREFIX}/json_{client.plant_id}", solar_data)
+                log.info("Published realtime data (real_power=%sW, today_eq=%skWh)",
+                          solar_data.get("real_power"), solar_data.get("today_eq"))
+                watchdog.success()
 
-            tree = client.get_device_tree()
-            _publish_device_statuses(mqtt_client, tree)
+                tree = client.get_device_tree()
+                _publish_device_statuses(mqtt_client, tree)
 
-            backoff = 5  # reset after a clean cycle
-        except Exception as e:
-            log.error("Cycle failed (%s), will retry in %ss", e, backoff)
-            client.token = None  # force re-login next cycle in case of auth issue
-            time.sleep(backoff)
-            backoff = min(backoff * 2, MAX_BACKOFF)
-            continue
+                backoff = 5  # reset after a clean cycle
+            except Exception as e:
+                log.error("Cycle failed (%s: %s), will retry in %ss", type(e).__name__, e, backoff)
+                client.token = None  # force re-login next cycle in case of auth issue
+                watchdog.beat()
+                time.sleep(backoff)
+                backoff = min(backoff * 2, MAX_BACKOFF)
+                continue
 
-        time.sleep(poll_interval)
+            watchdog.beat()
+            time.sleep(poll_interval)
+    except BaseException:
+        # Anything that escapes the per-cycle handler ends the process -
+        # make sure it never does so without a traceback in the log.
+        log.exception("Live gateway loop terminated unexpectedly")
+        raise
 
 
 def _publish_device_statuses(mqtt_client, tree, _depth=0):

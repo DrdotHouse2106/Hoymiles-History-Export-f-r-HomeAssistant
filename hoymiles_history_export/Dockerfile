@@ -7,7 +7,8 @@ RUN python -m pip install --upgrade pip
 RUN pip3 install requests
 RUN pip3 install websockets
 RUN pip3 install argon2-cffi
-RUN pip3 install paho-mqtt
+# Pinned: live_gateway.py uses the paho-mqtt 2.x callback API (CallbackAPIVersion.VERSION2)
+RUN pip3 install paho-mqtt==2.1.0
 
 COPY run.sh /
 COPY backfill.py /
