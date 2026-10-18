@@ -21,6 +21,12 @@ Dieses Repository enthält ein Home-Assistant-Add-on:
    installieren und die [README](hoymiles_history_export/README.md) für
    Konfiguration und Nutzung lesen.
 
+## Unterstützen
+
+Wenn dir dieses Projekt weiterhilft, freue ich mich über eine kleine Spende:
+
+[![Spenden via PayPal](https://img.shields.io/badge/Spenden-PayPal-0070ba?logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
+
 ## Lizenz
 
 MIT — siehe [LICENSE](LICENSE).
