@@ -1,5 +1,7 @@
 # Hoymiles History Export – Home Assistant Add-on Repository
 
+[![Spendier mir einen Kaffee](https://img.shields.io/badge/☕_Spendier_mir_einen_Kaffee-PayPal-0070ba?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/DrdotHouse)
+
 ⚠️ **Proof of Concept, ungetestet in dieser verpackten Form** – siehe
 Hinweis in [hoymiles_history_export/README.md](hoymiles_history_export/README.md).
 Veröffentlicht, damit andere es ausprobieren, bestätigen was funktioniert,
